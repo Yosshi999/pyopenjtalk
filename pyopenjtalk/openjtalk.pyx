@@ -11,6 +11,7 @@ cimport cython
 
 from openjtalk.mecab cimport Mecab, Mecab_initialize, Mecab_load, Mecab_analysis
 from openjtalk.mecab cimport Mecab_get_feature, Mecab_get_size, Mecab_refresh, Mecab_clear
+from openjtalk.mecab cimport mecab_dict_index, Mecab_load_ex #createModel, Model, Tagger, Lattice
 from openjtalk.njd cimport NJD, NJD_initialize, NJD_refresh, NJD_print, NJD_clear
 from openjtalk cimport njd as _njd
 from openjtalk.jpcommon cimport JPCommon, JPCommon_initialize,JPCommon_make_label
@@ -101,7 +102,7 @@ cdef class OpenJTalk(object):
     cdef NJD* njd
     cdef JPCommon* jpcommon
 
-    def __cinit__(self, bytes dn_mecab=b"/usr/local/dic"):
+    def __cinit__(self, bytes dn_mecab=b"/usr/local/dic", bytes user_mecab=b""):
         self.mecab = new Mecab()
         self.njd = new NJD()
         self.jpcommon = new JPCommon()
@@ -110,7 +111,7 @@ cdef class OpenJTalk(object):
         NJD_initialize(self.njd)
         JPCommon_initialize(self.jpcommon)
 
-        r = self._load(dn_mecab)
+        r = self._load(dn_mecab, user_mecab)
         if r != 1:
           self._clear()
           raise RuntimeError("Failed to initalize Mecab")
@@ -121,8 +122,8 @@ cdef class OpenJTalk(object):
       NJD_clear(self.njd)
       JPCommon_clear(self.jpcommon)
 
-    def _load(self, bytes dn_mecab):
-        return Mecab_load(self.mecab, dn_mecab)
+    def _load(self, bytes dn_mecab, bytes user_mecab):
+        return Mecab_load_ex(self.mecab, dn_mecab, user_mecab)
 
 
     def run_frontend(self, text, verbose=0):
@@ -196,3 +197,17 @@ cdef class OpenJTalk(object):
         del self.mecab
         del self.njd
         del self.jpcommon
+
+def CreateUserDict(bytes dn_mecab, bytes path, bytes out_path):
+    cdef char* argv[10]
+    argv[0] = "mecab-dict-index"
+    argv[1] = "-d"
+    argv[2] = dn_mecab
+    argv[3] = "-u"
+    argv[4] = out_path
+    argv[5] = "-f"
+    argv[6] = "utf-8"
+    argv[7] = "-t"
+    argv[8] = "utf-8"
+    argv[9] = path
+    mecab_dict_index(10, argv)
