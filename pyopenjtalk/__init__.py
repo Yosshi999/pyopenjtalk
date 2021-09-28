@@ -182,6 +182,11 @@ def create_user_dict(path, out_path):
     CreateUserDict(OPEN_JTALK_DICT_DIR, path.encode("utf-8"), out_path.encode("utf-8"))
 
 def set_user_dict(path):
+    """Apply user dictionary
+
+    Args:
+        path (str): path to user dictionary
+    """
     global _global_jtalk
     if _global_jtalk is None:
         _lazy_init()

@@ -11,7 +11,7 @@ cimport cython
 
 from openjtalk.mecab cimport Mecab, Mecab_initialize, Mecab_load, Mecab_analysis
 from openjtalk.mecab cimport Mecab_get_feature, Mecab_get_size, Mecab_refresh, Mecab_clear
-from openjtalk.mecab cimport mecab_dict_index, Mecab_load_ex #createModel, Model, Tagger, Lattice
+from openjtalk.mecab cimport mecab_dict_index, createModel, Model, Tagger, Lattice
 from openjtalk.njd cimport NJD, NJD_initialize, NJD_refresh, NJD_print, NJD_clear
 from openjtalk cimport njd as _njd
 from openjtalk.jpcommon cimport JPCommon, JPCommon_initialize,JPCommon_make_label
@@ -21,6 +21,36 @@ from openjtalk cimport njd2jpcommon
 from openjtalk.text2mecab cimport text2mecab
 from openjtalk.mecab2njd cimport mecab2njd
 from openjtalk.njd2jpcommon cimport njd2jpcommon
+from libc.string cimport strlen
+
+cdef inline int Mecab_load_ex(Mecab *m, char* dicdir, char* userdic):
+    if userdic == NULL or strlen(userdic) == 0:
+        return Mecab_load(m, dicdir)
+
+    if m == NULL or dicdir == NULL or strlen(dicdir) == 0:
+        return 0
+
+    Mecab_clear(m)
+
+    cdef (char*)[5] argv = ["mecab", "-d", dicdir, "-u", userdic]
+    cdef Model *model = createModel(5, argv)
+
+    if model == NULL:
+        return 0
+    m.model = model
+
+    cdef Tagger *tagger = model.createTagger()
+    if tagger == NULL:
+        Mecab_clear(m)
+        return 0
+    m.tagger = tagger
+
+    cdef Lattice *lattice = model.createLattice()
+    if lattice == NULL:
+        Mecab_clear(m)
+        return 0
+    m.lattice = lattice
+    return 1
 
 cdef njd_node_get_string(_njd.NJDNode* node):
     return (<bytes>(_njd.NJDNode_get_string(node))).decode("utf-8")
@@ -97,6 +127,9 @@ cdef class OpenJTalk(object):
 
     Args:
         dn_mecab (bytes): Dictionaly path for MeCab.
+        user_mecab (bytes): Dictionary path for MeCab userdic.
+            This option is ignored when empty bytestring is given.
+            Default is empty.
     """
     cdef Mecab* mecab
     cdef NJD* njd
@@ -199,15 +232,16 @@ cdef class OpenJTalk(object):
         del self.jpcommon
 
 def CreateUserDict(bytes dn_mecab, bytes path, bytes out_path):
-    cdef char* argv[10]
-    argv[0] = "mecab-dict-index"
-    argv[1] = "-d"
-    argv[2] = dn_mecab
-    argv[3] = "-u"
-    argv[4] = out_path
-    argv[5] = "-f"
-    argv[6] = "utf-8"
-    argv[7] = "-t"
-    argv[8] = "utf-8"
-    argv[9] = path
+    cdef (char*)[10] argv = [
+        "mecab-dict-index",
+        "-d",
+        dn_mecab,
+        "-u",
+        out_path,
+        "-f",
+        "utf-8",
+        "-t",
+        "utf-8",
+        path
+    ]
     mecab_dict_index(10, argv)
